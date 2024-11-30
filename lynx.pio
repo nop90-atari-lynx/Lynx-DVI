@@ -1,0 +1,126 @@
+.program LynxDVI
+
+; Video
+; 0-3 = data
+; 4   = CK1
+; 5   = CK2
+; 5   = CK3
+; 7   = VSYNC
+; 
+.define D0 0
+.define D1 1
+.define D2 2
+.define D3 3
+.define Clock1 4
+.define Clock2 5
+.define Clock3 6
+.define VSync 7
+
+; ----------------------------------------------------------
+; Video data sampling
+; ----------------------------------------------------------
+
+; Auto-push is enabled
+public lynx_video_start:
+    ; Wait for first VSYNC
+    wait 0 pin VSync
+
+.wrap_target
+
+    set y, 7
+ck1loop:                
+    set x, 9
+ck1loop2:
+    ; Wait for high CLK
+    wait 1 pin Clock1
+    
+    ; Sample data 
+    in pins, 8
+
+    ; Wait for low CLK
+    wait 0 pin Clock1
+
+    ; Sample data 
+    in pins, 8
+
+    ; Auto-push is enabled, saves one instruction/cycle
+    ; push
+
+    jmp x-- ck1loop2
+    jmp y-- ck1loop
+
+
+    set y, 7
+ck2loop:                
+    set x, 9
+ck2loop2:
+    ; Wait for high CLK
+    wait 1 pin Clock2
+    
+    ; Sample data 
+    in pins, 8
+
+    ; Wait for low CLK
+    wait 0 pin Clock2
+
+    ; Sample data 
+    in pins, 8
+
+    ; Auto-push is enabled, saves one instruction/cycle
+    ; push
+
+    jmp x-- ck2loop2
+    jmp y-- ck2loop
+
+    set y, 7
+ck3loop:                
+    set x, 9
+ck3loop2:
+    ; Wait for high CLK
+    wait 1 pin Clock3
+    
+    ; Sample data 
+    in pins, 8
+
+    ; Wait for low CLK
+    wait 0 pin Clock3
+
+    ; Sample data 
+    in pins, 8
+
+    ; Auto-push is enabled, saves one instruction/cycle
+    ; push
+
+    jmp x-- ck3loop2
+    jmp y-- ck3loop
+
+.wrap
+
+
+% c-sdk {
+
+void lynx_video_program_init(PIO pio, uint sm, uint offset)
+{
+    // gpio0 -> 7 input
+    for (int i = 0; i < 8; i++) {
+        pio_gpio_init(pio, i);
+    }
+
+    pio_sm_config c = LynxDVI_program_get_default_config(offset);
+
+    // Double the FIFO depth
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    // Enable auto-push
+    sm_config_set_in_shift(&c, false, true, 8);
+
+    // GPIO0 -> GPIO7 as in pins
+    sm_config_set_in_pin_base(&c, 0);
+    
+    // set clock divider
+    sm_config_set_clkdiv(&c, 8.0);
+
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+%}
